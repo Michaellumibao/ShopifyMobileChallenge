@@ -4,6 +4,12 @@
     <string name="tab_text_2">Orders By Year</string>
     <string name="action_settings">Settings</string>
     <string name="section_format">Hello World from section: %1$d</string>
+    <string name="orders_2017_title">%1$d Orders in 2017</string>
+    <string name="orders_2016_title">%1$d Orders in 2016</string>
+    <string name="orders_past_title">%1$d Orders past 2016</string>
+
+
+
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>

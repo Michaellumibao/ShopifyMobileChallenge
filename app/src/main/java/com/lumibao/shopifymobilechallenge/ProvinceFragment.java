@@ -4,9 +4,16 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 
 /**
@@ -20,8 +27,7 @@ import android.view.ViewGroup;
 public class ProvinceFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private HashMap<String, Integer> ordersByProvince;
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -33,20 +39,11 @@ public class ProvinceFragment extends Fragment {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment ProvinceFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static ProvinceFragment newInstance(String param1, String param2) {
+    // New instance receives ordersByProvince from main activity
+    public static ProvinceFragment newInstance(HashMap<String, Integer> ordersByProvince) {
         ProvinceFragment fragment = new ProvinceFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putSerializable("ordersByProvince", ordersByProvince);
         fragment.setArguments(args);
         return fragment;
     }
@@ -55,8 +52,8 @@ public class ProvinceFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            this.ordersByProvince = (HashMap<String, Integer>) getArguments().getSerializable("ordersByProvince");
+            Log.d("app", "ordersByProvince?");
         }
     }
 
@@ -64,7 +61,20 @@ public class ProvinceFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_province, container, false);
+        View view = inflater.inflate(R.layout.fragment_province, container, false);
+        ListView province_list = view.findViewById(R.id.orders_province_list);
+
+        List<String> orderCountByProvince = new ArrayList<>();
+        for (String province: ordersByProvince.keySet()) {
+            Log.d("app", province + "province");
+            orderCountByProvince.add(Integer.toString(ordersByProvince.get(province)) + " orders in " + province + ".");
+        }
+        ArrayAdapter<String> province_list_adapter = new ArrayAdapter<String>(
+                getActivity(),
+                android.R.layout.simple_list_item_1,
+                orderCountByProvince);
+        province_list.setAdapter(province_list_adapter);
+        return view;
     }
 
     // TODO: Rename method, update argument and hook method into UI event

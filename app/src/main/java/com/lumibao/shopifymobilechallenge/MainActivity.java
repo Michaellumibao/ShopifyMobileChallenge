@@ -1,6 +1,8 @@
 package com.lumibao.shopifymobilechallenge;
 
 import android.net.Uri;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.support.design.widget.TabLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -21,7 +23,19 @@ import android.view.ViewGroup;
 
 import android.widget.TextView;
 
+import com.loopj.android.http.AsyncHttpClient;
+import com.loopj.android.http.JsonHttpResponseHandler;
 import com.lumibao.shopifymobilechallenge.dummy.DummyContent;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import cz.msebera.android.httpclient.Header;
 
 public class MainActivity extends AppCompatActivity
         implements ProvinceFragment.OnFragmentInteractionListener, YearOrdersFragment.OnListFragmentInteractionListener{
@@ -41,6 +55,16 @@ public class MainActivity extends AppCompatActivity
      */
     private ViewPager mViewPager;
 
+    // Shopify API
+    final String SHOPIFY_URL = "https://shopicruit.myshopify.com/admin/orders.json?page=1&access_token=c32313df0d0ef512ca64d5b336a0d7c6";
+
+    List<OrderModel> orders = new ArrayList<>();
+    List<String> provinces = new ArrayList<>();
+    HashMap<String, Integer> ordersInProvince = new HashMap<>();
+    int ordersIn2017;
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,33 +72,122 @@ public class MainActivity extends AppCompatActivity
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        // Create the adapter that will return a fragment for each of the three
-        // primary sections of the activity.
-        mViewPagerAdapter = new ViewPagerAdapter(getSupportFragmentManager());
 
-        mViewPagerAdapter.addFragment(new ProvinceFragment(), "Orders by Province");
-        mViewPagerAdapter.addFragment(new YearOrdersFragment(), "Orders by Year");
-
-        // Set up the ViewPager with the sections adapter.
-        mViewPager = (ViewPager) findViewById(R.id.container);
-        mViewPager.setAdapter(mViewPagerAdapter);
-
-        TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
-
-        mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
-        tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager));
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        //Get JSONObject from Shopify API
+        AsyncHttpClient client = new AsyncHttpClient();
+        client.get(SHOPIFY_URL, new JsonHttpResponseHandler() {
+            @RequiresApi(api = Build.VERSION_CODES.N)
             @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+            public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
+                //Initialize JSONArray
+                JSONArray ordersJson = null;
+                try {
+                    //Get all 50 orders from the API
+                    ordersJson = response.getJSONArray("orders");
+                } catch (JSONException e) {
+                }
+
+                //Initialize array of Orders
+                for (int i = 0; i < ordersJson.length(); i++) {
+                    try {
+                        OrderModel order = OrderModel.fromJson((JSONObject) ordersJson.get(i));
+                        if (order != null) {
+                            orders.add(order);
+                            Log.i("app", order.toString());
+                        } else {
+                            Log.w("AbnormalOrder", "Order id: " + Integer.toString(((JSONObject) ordersJson.get(i)).getInt("id")));
+                        }
+                    } catch (JSONException e) {
+
+                    }
+                }
+
+                Log.d("app", "Success");
+                calculateOrdersByProvince();
+                calculateOrdersIn2017();
+
+                // Populate Province List
+//                ListView province_list = findViewById(R.id.province_list);
+//                List<String> orderCountByProvince = new ArrayList<>();
+//
+//                Log.i("!!!", Integer.toString(ordersInProvince.keySet().size()));
+//
+//                for (String province: ordersInProvince.keySet()) {
+//                    Log.i("!!!", province + "province");
+//                    orderCountByProvince.add("Orders in " + province + ": " + Integer.toString(ordersInProvince.get(province)));
+//                }
+//                ArrayAdapter<String> province_list_adapter = new ArrayAdapter<String>(
+//                        MainActivity.this,
+//                        android.R.layout.simple_list_item_1,
+//                        orderCountByProvince);
+//                province_list.setAdapter(province_list_adapter);
+
+                //Set up fragments
+                mViewPagerAdapter = new ViewPagerAdapter(getSupportFragmentManager());
+
+                mViewPagerAdapter.addFragment(ProvinceFragment.newInstance(ordersInProvince), "Orders by Province");
+                mViewPagerAdapter.addFragment(new YearOrdersFragment(), "Orders by Year");
+
+                // Set up the ViewPager with the sections adapter.
+                mViewPager = (ViewPager) findViewById(R.id.container);
+                mViewPager.setAdapter(mViewPagerAdapter);
+
+                TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
+
+
+                mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
+                tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager));
+            }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
             }
         });
-
     }
 
+    private void calculateOrdersIn2017() {
+
+        ordersIn2017 = 0;
+        for (OrderModel order : orders) {
+            if (order.getYear() == 2017) {
+                ordersIn2017++;
+            }
+        }
+        Log.d("app", "Orders in 2017: " + Integer.toString(ordersIn2017));
+    }
+
+    private void calculateOrdersByProvince() {
+        for (OrderModel order : orders) {
+            Log.d("app", "id: " + Integer.toString(order.getOrderNumber()));
+
+            if (!provinceIsPresent(order.getProvince())) {
+                provinces.add(order.getProvince());
+                ordersInProvince.put(order.getProvince(), 1);
+            } else {
+                Log.d("app", "INSIDE PRESENT PROVINCE");
+                ordersInProvince.replace(order.getProvince(), ordersInProvince.get(order.getProvince()) + 1);
+            }
+        }
+
+        for (String province : ordersInProvince.keySet()) {
+            Log.d("app", province + " : " + Integer.toString(ordersInProvince.get(province)));
+        }
+    }
+
+    private boolean provinceIsPresent(String province) {
+        for (String presentProvince : provinces) {
+            Log.d("app", "province: " + province);
+            Log.d("app", "presentProvinces: " + presentProvince);
+
+            if (province != null) {
+                if (province.equalsIgnoreCase(presentProvince)) {
+                    return true;
+                }
+            }
+
+        }
+        return false;
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -97,41 +210,6 @@ public class MainActivity extends AppCompatActivity
 
         return super.onOptionsItemSelected(item);
     }
-
-    /**
-     * A placeholder fragment containing a simple view.
-     */
-//    public static class PlaceholderFragment extends Fragment {
-//        /**
-//         * The fragment argument representing the section number for this
-//         * fragment.
-//         */
-//        private static final String ARG_SECTION_NUMBER = "section_number";
-//
-//        public PlaceholderFragment() {
-//        }
-//
-//        /**
-//         * Returns a new instance of this fragment for the given section
-//         * number.
-//         */
-//        public static PlaceholderFragment newInstance(int sectionNumber) {
-//            PlaceholderFragment fragment = new PlaceholderFragment();
-//            Bundle args = new Bundle();
-//            args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-//            fragment.setArguments(args);
-//            return fragment;
-//        }
-//
-//        @Override
-//        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-//                                 Bundle savedInstanceState) {
-//            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-//            TextView textView = (TextView) rootView.findViewById(R.id.section_label);
-//            textView.setText(getString(R.string.section_format, getArguments().getInt(ARG_SECTION_NUMBER)));
-//            return rootView;
-//        }
-//    }
 
     @Override
     public void onFragmentInteraction(Uri uri){
